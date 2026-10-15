@@ -66,7 +66,7 @@ export function PianoRoll() {
 
   return (
     <div className="roll-wrap">
-      <svg className="roll" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: Math.min(340, Math.max(170, H)) }}>
+      <svg className="roll" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: `clamp(120px, 28vh, ${Math.min(340, Math.max(170, H))}px)` }}>
         {Array.from({ length: rows }, (_, i) => hi - i)
           .filter((m) => BLACK.has(m % 12))
           .map((m) => (
@@ -88,7 +88,10 @@ export function PianoRoll() {
       </svg>
       {!notes.length && (
         <div className="roll-empty">
-          Press <kbd>R</kbd> to record, then play keys <kbd>A</kbd>–<kbd>;</kbd> for melody and <kbd>1</kbd>–<kbd>7</kbd> for chords.
+          <span className="desktop-only">
+            Press <kbd>R</kbd> to record, then play keys <kbd>A</kbd>–<kbd>;</kbd> for melody and <kbd>1</kbd>–<kbd>7</kbd> for chords.
+          </span>
+          <span className="touch-only">Tap ● to record, then play some chords and keys.</span>
         </div>
       )}
     </div>

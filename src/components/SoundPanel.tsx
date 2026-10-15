@@ -1,7 +1,7 @@
 import { useStore } from "../state/store";
 import { PRESETS, type PresetName } from "../audio/presets";
 import type { TrackId } from "../state/types";
-import { Slider } from "./TimingPanel";
+import { Slider } from "./controls";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 

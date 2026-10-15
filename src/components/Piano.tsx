@@ -2,10 +2,11 @@ import { useRef } from "react";
 import { useStore } from "../state/store";
 import { isInScale, midiToName } from "../music/theory";
 import { LEAD_KEY_LABELS } from "../input/keyboard";
+import { useMedia } from "../useMedia";
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 
-/** Two-octave on-screen keyboard for the lead track. Pointer + touch friendly. */
+/** On-screen keyboard for the lead track: two octaves on desktop, one on phones. */
 export function Piano() {
   const leadOctave = useStore((s) => s.leadOctave);
   const keyRoot = useStore((s) => s.keyRoot);
@@ -13,9 +14,10 @@ export function Piano() {
   const scaleLock = useStore((s) => s.scaleLock);
   const held = useStore((s) => s.heldMidi.lead);
   const active = useRef(new Map<number, number>()); // pointerId → midi
+  const narrow = useMedia("(max-width: 640px)");
 
   const base = (leadOctave + 1) * 12;
-  const keys = Array.from({ length: 25 }, (_, i) => base + i);
+  const keys = Array.from({ length: narrow ? 13 : 25 }, (_, i) => base + i);
   const whites = keys.filter((m) => !BLACK.has(m % 12));
 
   const press = (pointerId: number, raw: number) => {

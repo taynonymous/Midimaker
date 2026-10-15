@@ -21,6 +21,10 @@ Production: `npm run build && npm start` (single Node process serves `dist/` + `
 
 ## Controls
 
+The main screen has a scene picker, **Play / Record / Undo**, one **Fix timing** button, the loop view, and the instruments. Everything else is under ⚙ Settings, split into Song (key, tempo, loop length, drums, export), Chords, Melody and Timing.
+
+On phones, Chords and Keys are tabs, the keyboard shows one octave with on-screen octave buttons, and Settings opens as a bottom sheet. In landscape, both instruments fit on one screen.
+
 | Key | Action |
 |---|---|
 | `A W S E D F T G Y H U J K O L P ;` | Melody keyboard (home row = white keys) |

@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { engine } from "../audio/engine";
 import type { DrumPatternName } from "../audio/drums";
 import { diatonicChord, snapToScale, voiceLead, type ScaleName, type VoicingName } from "../music/theory";
-import type { Note, TrackId, TrackSettings } from "./types";
+import type { Feel, Note, TrackId, TrackSettings } from "./types";
+import type { GridName } from "../timing/quantize";
 import { SCENES, type SceneName } from "./scenes";
 
 let nextId = 1;
@@ -33,7 +34,15 @@ interface State {
   playing: boolean;
   recording: boolean;
   aiBusy: boolean;
-  aiSummary: string | null;
+  toast: { text: string; error?: boolean } | null;
+  // timing-fix options
+  grid: GridName;
+  strength: number;
+  swing: number;
+  feel: Feel;
+  // UI
+  settingsOpen: boolean;
+  mobileTab: TrackId;
   activeChord: number | null;
   heldMidi: Record<TrackId, number[]>;
 }
@@ -51,7 +60,7 @@ interface Actions {
   chordOff: (notes: number[]) => void;
   /** Snap a raw lead note to the key when scale lock is on. */
   leadNote: (midi: number) => number;
-  replaceNotes: (notes: Note[], opts?: { ghost?: boolean; summary?: string | null }) => void;
+  replaceNotes: (notes: Note[], opts?: { ghost?: boolean; toast?: string | null }) => void;
   deleteNote: (id: string) => void;
   clearTrack: (t: TrackId | "all") => void;
   undo: () => void;
@@ -79,7 +88,13 @@ export const useStore = create<State & Actions>((set, get) => ({
   playing: false,
   recording: false,
   aiBusy: false,
-  aiSummary: null,
+  toast: null,
+  grid: "1/16",
+  strength: 1,
+  swing: 0,
+  feel: "tight",
+  settingsOpen: false,
+  mobileTab: "chords",
   activeChord: null,
   heldMidi: { lead: [], chords: [] },
 
@@ -176,7 +191,7 @@ export const useStore = create<State & Actions>((set, get) => ({
       history: [...s.history, s.notes].slice(-50),
       notes,
       ghost: opts.ghost ? s.notes : null,
-      aiSummary: opts.summary ?? null,
+      toast: opts.toast ? { text: opts.toast } : null,
     });
   },
 
@@ -191,14 +206,14 @@ export const useStore = create<State & Actions>((set, get) => ({
       history: [...s.history, s.notes].slice(-50),
       notes: t === "all" ? [] : s.notes.filter((n) => n.track !== t),
       ghost: null,
-      aiSummary: null,
+      toast: null,
     });
   },
 
   undo: () => {
     const s = get();
     if (!s.history.length) return;
-    set({ notes: s.history[s.history.length - 1], history: s.history.slice(0, -1), ghost: null, aiSummary: null });
+    set({ notes: s.history[s.history.length - 1], history: s.history.slice(0, -1), ghost: null, toast: { text: "Undone" } });
   },
 }));
 
