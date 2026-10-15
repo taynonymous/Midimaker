@@ -4,6 +4,7 @@ import { GRIDS, humanize, quantize, type GridName } from "../timing/quantize";
 import { NOTE_NAMES } from "../music/theory";
 import { SCENES } from "../state/scenes";
 import type { Feel, Note } from "../state/types";
+import { AI_ENABLED } from "../config";
 
 export function TimingPanel() {
   const s = useStore();
@@ -55,18 +56,20 @@ export function TimingPanel() {
         <span className="hint">{s.notes.length} notes</span>
       </header>
 
-      <div className="ai-row">
-        <div className="seg">
-          {(["tight", "natural", "swing"] as Feel[]).map((f) => (
-            <button key={f} className={feel === f ? "on" : ""} onClick={() => setFeel(f)}>
-              {f}
-            </button>
-          ))}
+      {AI_ENABLED && (
+        <div className="ai-row">
+          <div className="seg">
+            {(["tight", "natural", "swing"] as Feel[]).map((f) => (
+              <button key={f} className={feel === f ? "on" : ""} onClick={() => setFeel(f)}>
+                {f}
+              </button>
+            ))}
+          </div>
+          <button className="btn ai" disabled={empty || s.aiBusy} onClick={doAi}>
+            {s.aiBusy ? <span className="spinner" /> : "✦"} AI fix timing
+          </button>
         </div>
-        <button className="btn ai" disabled={empty || s.aiBusy} onClick={doAi}>
-          {s.aiBusy ? <span className="spinner" /> : "✦"} AI fix timing
-        </button>
-      </div>
+      )}
 
       <div className="row">
         <label>

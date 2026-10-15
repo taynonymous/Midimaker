@@ -13,6 +13,12 @@ npm run dev                 # web on :5173, API on :8787 (proxied at /api)
 
 Production: `npm run build && npm start` (single Node process serves `dist/` + `/api` on `$PORT`), or `docker build -t midimaker . && docker run -p 8787:8787 -e ANTHROPIC_API_KEY midimaker`.
 
+### GitHub Pages (static, no AI)
+
+`npm run build:pages` builds with `VITE_AI=false` (from `.env.pages`) and relative asset paths. The AI button is hidden and no `/api` calls are made. Everything else runs in the browser.
+
+`.github/workflows/pages.yml` runs the tests, then builds and deploys on every push to `master`. One-time setup: **Settings → Pages → Source: GitHub Actions**.
+
 ## Controls
 
 | Key | Action |
