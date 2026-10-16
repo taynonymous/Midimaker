@@ -10,7 +10,9 @@ let nextId = 1;
 const newId = () => `n${(nextId++).toString(36)}`;
 
 interface State {
-  scene: SceneName | "custom";
+  /** Selected scene preset; `modified` is set once any tweak diverges from it. */
+  scene: SceneName;
+  modified: boolean;
   bpm: number;
   bars: number;
   keyRoot: number; // pitch class 0-11
@@ -41,7 +43,8 @@ interface State {
   swing: number;
   feel: Feel;
   // UI
-  settingsOpen: boolean;
+  /** Main stage shows the sound tweaks, or the loop timeline (auto-switches on record). */
+  view: "tweaks" | "loop";
   mobileTab: TrackId;
   activeChord: number | null;
   heldMidi: Record<TrackId, number[]>;
@@ -50,7 +53,9 @@ interface State {
 interface Actions {
   set: (p: Partial<State>) => void;
   setTrack: (t: TrackId, p: Partial<TrackSettings>) => void;
+  /** Load a scene's preset, resetting every tweak to that scene's defaults. */
   loadScene: (s: SceneName) => void;
+  resetTweaks: () => void;
   togglePlay: () => Promise<void>;
   toggleRecord: () => Promise<void>;
   noteOn: (track: TrackId, midi: number, velocity?: number, delaySec?: number) => void;
@@ -68,20 +73,35 @@ interface Actions {
 
 export const loopBeats = (s: Pick<State, "bars">) => s.bars * 4;
 
+/** Every user-tweakable setting, at its default for a given scene. Notes are not included. */
+function defaults(scene: SceneName) {
+  const sc = SCENES[scene].state;
+  return {
+    ...sc,
+    tracks: structuredClone(sc.tracks),
+    scene,
+    modified: false,
+    bars: 4,
+    chordOctave: 3,
+    leadOctave: 5,
+    scaleLock: true,
+    metronome: false,
+    mastering: true,
+    midiTarget: "lead" as TrackId,
+    grid: "1/16" as GridName,
+    strength: 1,
+    swing: 0,
+    feel: "tight" as Feel,
+  };
+}
+const TWEAK_KEYS = new Set(Object.keys(defaults("edm")).filter((k) => k !== "scene" && k !== "modified"));
+
 // Notes currently held while recording, keyed by track:midi.
 const pending = new Map<string, { start: number; velocity: number; id: string }>();
 let lastChord: number[] | null = null;
 
 export const useStore = create<State & Actions>((set, get) => ({
-  ...SCENES.edm.state,
-  scene: "edm",
-  bars: 4,
-  chordOctave: 3,
-  leadOctave: 5,
-  scaleLock: true,
-  metronome: false,
-  mastering: true,
-  midiTarget: "lead",
+  ...defaults("edm"),
   notes: [],
   history: [],
   ghost: null,
@@ -89,22 +109,19 @@ export const useStore = create<State & Actions>((set, get) => ({
   recording: false,
   aiBusy: false,
   toast: null,
-  grid: "1/16",
-  strength: 1,
-  swing: 0,
-  feel: "tight",
-  settingsOpen: false,
+  view: "tweaks",
   mobileTab: "chords",
   activeChord: null,
   heldMidi: { lead: [], chords: [] },
 
-  set: (p) => set({ ...p, ...(isSceneField(p) ? { scene: "custom" } : {}) }),
+  set: (p) => set(Object.keys(p).some((k) => TWEAK_KEYS.has(k)) ? { ...p, modified: true } : p),
 
-  setTrack: (t, p) => set((s) => ({ tracks: { ...s.tracks, [t]: { ...s.tracks[t], ...p } }, scene: "custom" })),
+  setTrack: (t, p) => set((s) => ({ tracks: { ...s.tracks, [t]: { ...s.tracks[t], ...p } }, modified: true })),
 
-  loadScene: (name) => {
-    const sc = SCENES[name].state;
-    set({ ...sc, tracks: structuredClone(sc.tracks), scene: name });
+  loadScene: (name) => set(defaults(name)),
+
+  resetTweaks: () => {
+    set({ ...defaults(get().scene), toast: { text: `Reset to ${SCENES[get().scene].label} defaults` } });
   },
 
   togglePlay: async () => {
@@ -127,7 +144,7 @@ export const useStore = create<State & Actions>((set, get) => ({
       set({ recording: false });
       return;
     }
-    set({ history: [...s.history, s.notes].slice(-50), recording: true, ghost: null });
+    set({ history: [...s.history, s.notes].slice(-50), recording: true, ghost: null, view: "loop" });
     if (!s.playing) {
       engine.play();
       set({ playing: true });
@@ -139,7 +156,8 @@ export const useStore = create<State & Actions>((set, get) => ({
     engine.noteOn(track, midi, velocity, delaySec);
     const s = get();
     set({ heldMidi: { ...s.heldMidi, [track]: [...s.heldMidi[track], midi] } });
-    if (s.recording && s.tracks[track].armed && engine.playing) {
+    // No engine.playing check: notes hit in the ~50ms before the transport starts land at beat 0.
+    if (s.recording && s.tracks[track].armed) {
       const lb = loopBeats(s);
       const delayBeats = (delaySec * s.bpm) / 60;
       pending.set(`${track}:${midi}`, {
@@ -216,11 +234,6 @@ export const useStore = create<State & Actions>((set, get) => ({
     set({ notes: s.history[s.history.length - 1], history: s.history.slice(0, -1), ghost: null, toast: { text: "Undone" } });
   },
 }));
-
-const SCENE_FIELDS = ["bpm", "keyRoot", "scale", "voicing", "strum", "drums"];
-function isSceneField(p: object) {
-  return Object.keys(p).some((k) => SCENE_FIELDS.includes(k));
-}
 
 /** Close any notes still held when recording stops so nothing hangs. */
 function finishRecording() {

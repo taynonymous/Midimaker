@@ -66,7 +66,7 @@ export function PianoRoll() {
 
   return (
     <div className="roll-wrap">
-      <svg className="roll" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: `clamp(120px, 28vh, ${Math.min(340, Math.max(170, H))}px)` }}>
+      <svg className="roll" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         {Array.from({ length: rows }, (_, i) => hi - i)
           .filter((m) => BLACK.has(m % 12))
           .map((m) => (

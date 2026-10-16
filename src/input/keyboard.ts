@@ -52,9 +52,6 @@ export function bindComputerKeyboard() {
       case "KeyR":
         void s.toggleRecord();
         break;
-      case "Escape":
-        s.set({ settingsOpen: false });
-        break;
       case "KeyM":
         s.set({ metronome: !s.metronome });
         break;

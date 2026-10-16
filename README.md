@@ -21,9 +21,9 @@ Production: `npm run build && npm start` (single Node process serves `dist/` + `
 
 ## Controls
 
-The main screen has a scene picker, **Play / Record / Undo**, one **Fix timing** button, the loop view, and the instruments. Everything else is under ⚙ Settings, split into Song (key, tempo, loop length, drums, export), Chords, Melody and Timing.
+The main screen has a scene picker, **Play / Record / Undo**, one **Fix timing** button, a stage area, and the instruments. The stage shows the **tweaks** (Song, Chords, Melody and Timing tabs) by default. Pressing **Record** switches it to the **loop timeline**, which has the MIDI/audio export and Clear buttons. The ⚙/▤ button switches back. **Reset** reverts every tweak to the selected scene's defaults without touching recorded notes. A dot on the scene chip means the settings have been tweaked.
 
-On phones, Chords and Keys are tabs, the keyboard shows one octave with on-screen octave buttons, and Settings opens as a bottom sheet. In landscape, both instruments fit on one screen.
+On phones, Chords and Keys are tabs, the keyboard shows one octave with on-screen octave buttons, and In landscape, both instruments fit on one screen.
 
 | Key | Action |
 |---|---|

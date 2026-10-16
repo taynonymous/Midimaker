@@ -39,7 +39,7 @@ export async function aiFixLoop() {
         bpm: s.bpm,
         bars: s.bars,
         feel: s.feel,
-        style: s.scene === "custom" ? "custom" : SCENES[s.scene].label,
+        style: SCENES[s.scene].label,
         key: `${NOTE_NAMES[s.keyRoot]} ${s.scale}`,
         notes: s.notes,
       }),
@@ -61,4 +61,7 @@ export async function aiFixLoop() {
 }
 
 /** The one-tap "make it tight" button: AI when available, smart quantize otherwise. */
-export const fixTiming = () => (AI_ENABLED ? aiFixLoop() : quantizeLoop());
+export const fixTiming = () => {
+  useStore.getState().set({ view: "loop" }); // show the result
+  return AI_ENABLED ? aiFixLoop() : quantizeLoop();
+};

@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { bindEngine, useStore } from "./state/store";
 import { bindComputerKeyboard } from "./input/keyboard";
 import { bindMidi, type MidiStatus } from "./input/midi";
-import { NOTE_NAMES } from "./music/theory";
 import { SCENES, type SceneName } from "./state/scenes";
 import { fixTiming } from "./timing/actions";
 import { AI_ENABLED } from "./config";
 import { Piano } from "./components/Piano";
 import { ChordPad } from "./components/ChordPad";
-import { PianoRoll } from "./components/PianoRoll";
-import { Settings } from "./components/Settings";
+import { Tweaks } from "./components/Tweaks";
+import { LoopView } from "./components/LoopView";
 import type { TrackId } from "./state/types";
 
 export default function App() {
@@ -24,7 +23,6 @@ export default function App() {
     return () => off();
   }, []);
 
-  const openSettings = () => s.set({ settingsOpen: true });
   const tab = (t: TrackId, label: string) => (
     <button className={s.mobileTab === t ? "on" : ""} onClick={() => s.set({ mobileTab: t })}>
       {label}
@@ -41,6 +39,7 @@ export default function App() {
           {Object.entries(SCENES).map(([k, sc]) => (
             <button key={k} className={`chip ${s.scene === k ? "on" : ""}`} onClick={() => s.loadScene(k as SceneName)}>
               {sc.label}
+              {s.scene === k && s.modified && <span className="mod-dot" title="Tweaked — Reset restores defaults" />}
             </button>
           ))}
         </nav>
@@ -53,23 +52,28 @@ export default function App() {
         <button className={`tbtn rec ${s.recording ? "on" : ""}`} onClick={() => void s.toggleRecord()} aria-label="Record" title="Record / overdub (R)">
           ●
         </button>
-        <button className="tbtn" disabled={!s.history.length} onClick={s.undo} aria-label="Undo" title="Undo">
+        <button className="tbtn" disabled={!s.history.length} onClick={() => {
+            s.set({ view: "loop" });
+            s.undo();
+          }} aria-label="Undo" title="Undo">
           ↶
         </button>
         <button className="btn fix" disabled={!s.notes.length || s.aiBusy} onClick={() => void fixTiming()}>
           {s.aiBusy ? <span className="spinner" /> : "✦"} Fix timing
           {AI_ENABLED && <span className="badge">AI</span>}
         </button>
-        <button className="song-info" onClick={openSettings} title="Song settings">
-          <b>{s.bpm}</b> bpm · {NOTE_NAMES[s.keyRoot]} {s.scale}
-          {midi?.inputs.length ? <span className="midi-dot" title={midi.inputs.join(", ")} /> : null}
-        </button>
-        <button className="tbtn gear" onClick={openSettings} aria-label="Settings">
-          ⚙
+        {midi?.inputs.length ? <span className="midi-dot" title={`MIDI: ${midi.inputs.join(", ")}`} /> : null}
+        <button
+          className="view-toggle"
+          onClick={() => s.set({ view: s.view === "loop" ? "tweaks" : "loop" })}
+          title={s.view === "loop" ? "Show sound tweaks" : "Show loop timeline"}
+        >
+          {s.view === "loop" ? "⚙" : "▤"}
+          <span>{s.view === "loop" ? "Tweaks" : "Loop"}</span>
         </button>
       </section>
 
-      <PianoRoll />
+      <section className="stage">{s.view === "loop" ? <LoopView /> : <Tweaks />}</section>
       <Toast />
 
       <div className="tabs">
@@ -109,8 +113,6 @@ export default function App() {
         <kbd>Space</kbd> play · <kbd>R</kbd> record · <kbd>A</kbd>–<kbd>;</kbd> melody · <kbd>Z</kbd>/<kbd>X</kbd> octave · <kbd>1</kbd>–<kbd>7</kbd> chords
         · <kbd>M</kbd> metronome
       </p>
-
-      <Settings />
     </div>
   );
 }

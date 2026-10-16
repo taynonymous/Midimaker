@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useStore } from "../state/store";
-import { engine } from "../audio/engine";
 import { DRUM_PATTERNS, type DrumPatternName } from "../audio/drums";
 import { NOTE_NAMES, SCALES, VOICINGS, type ScaleName, type VoicingName } from "../music/theory";
 import { GRIDS, type GridName } from "../timing/quantize";
 import { aiFixLoop, humanizeLoop, quantizeLoop } from "../timing/actions";
 import { AI_ENABLED } from "../config";
-import { download, exportMidi } from "../export";
 import { Field, Seg, Slider } from "./controls";
 import { SoundPanel } from "./SoundPanel";
 import type { Feel } from "../state/types";
@@ -20,36 +18,21 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
-/** Everything that isn't needed while playing lives here. Bottom sheet on phones, drawer on desktop. */
-export function Settings() {
+/** All sound/song tweaks, shown on the main stage. Reset returns them to the scene's defaults. */
+export function Tweaks() {
   const s = useStore();
   const [tab, setTab] = useState<Tab>("song");
-  const [bouncing, setBouncing] = useState(false);
-  if (!s.settingsOpen) return null;
-  const close = () => s.set({ settingsOpen: false });
-
-  const bounce = async () => {
-    await engine.start();
-    setBouncing(true);
-    s.set({ playing: false, recording: false });
-    try {
-      download(await engine.bounce(s.bars), `midimaker-${s.bpm}bpm.webm`);
-    } finally {
-      setBouncing(false);
-    }
-  };
 
   return (
-    <div className="sheet-backdrop" onClick={close}>
-      <aside className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Settings">
-        <header className="sheet-head">
-          <Seg options={TABS} value={tab} onChange={setTab} />
-          <button className="icon-btn" onClick={close} aria-label="Close">
-            ✕
-          </button>
-        </header>
+    <div className="tweaks">
+      <div className="tweaks-head">
+        <Seg options={TABS} value={tab} onChange={setTab} />
+        <button className="btn reset" disabled={!s.modified} onClick={s.resetTweaks} title="Revert all tweaks to the scene's defaults">
+          ↺ Reset
+        </button>
+      </div>
 
-        <div className="sheet-body">
+      <div className="tweaks-body">
           {tab === "song" && (
             <>
               <div className="grid2">
@@ -102,18 +85,6 @@ export function Settings() {
               <div className="toggles">
                 <Toggle on={s.metronome} onClick={() => s.set({ metronome: !s.metronome })} label="Metronome" />
                 <Toggle on={s.mastering} onClick={() => s.set({ mastering: !s.mastering })} label="Master FX (EQ, comp, limiter)" />
-              </div>
-              <h3>Export</h3>
-              <div className="row">
-                <button className="btn" disabled={!s.notes.length} onClick={() => exportMidi(s.notes, s.bpm, { lead: s.tracks.lead.preset, chords: s.tracks.chords.preset })}>
-                  ⇩ MIDI file
-                </button>
-                <button className="btn" disabled={!s.notes.length || bouncing} onClick={bounce}>
-                  {bouncing ? "Recording loop…" : "⇩ Audio"}
-                </button>
-                <button className="btn danger" disabled={!s.notes.length} onClick={() => s.clearTrack("all")}>
-                  Clear all
-                </button>
               </div>
             </>
           )}
@@ -198,8 +169,7 @@ export function Settings() {
               </div>
             </>
           )}
-        </div>
-      </aside>
+      </div>
     </div>
   );
 }

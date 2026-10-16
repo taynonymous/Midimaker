@@ -120,12 +120,37 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
 .tbtn.rec.on { background: var(--red); color: white; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 22px var(--red); } }
 .btn.fix { min-height: 46px; padding: 0 16px; border-radius: 23px; }
-.song-info {
-  margin-left: auto; background: none; border: none; color: var(--muted); font-size: 13px;
-  white-space: nowrap; display: flex; align-items: center; gap: 6px; padding: 8px;
+.midi-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); flex: none; }
+.view-toggle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex: none;
+  height: 46px; padding: 0 16px; border-radius: 23px; border: 1px solid var(--line); background: var(--bg2); font-size: 16px;
 }
-.song-info b { color: var(--text); }
-.midi-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.midi-dot + .view-toggle { margin-left: 0; }
+.view-toggle span { font-size: 14px; }
+.view-toggle:hover { border-color: var(--violet); }
+.mod-dot { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--amber); vertical-align: middle; }
+.chip.danger { color: var(--red); }
+
+/* ---- stage: tweaks or loop timeline, same footprint so the layout never jumps ---- */
+.stage {
+  height: 300px; display: flex; flex-direction: column; min-height: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+.tweaks, .loop-view { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.tweaks-head, .loop-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border-bottom: 1px solid var(--line);
+}
+.tweaks-head .seg { flex: 1; max-width: 460px; }
+.tweaks-head .seg button { flex: 1; padding: 8px 6px; }
+.btn.reset { min-height: 38px; padding: 6px 14px; }
+.btn.reset:not(:disabled) { border-color: var(--amber); color: var(--amber); }
+.tweaks-body { padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.loop-head .row { gap: 6px; }
+.loop-head .chip { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+.loop-view .roll-wrap { flex: 1; border: none; border-radius: 0; min-height: 0; }
+.loop-view .roll { height: 100%; }
 
 /* ---- piano roll ---- */
 .roll-wrap { position: relative; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #0a0716; }
@@ -147,12 +172,16 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
   color: var(--muted); pointer-events: none; text-align: center; padding: 16px;
 }
 
+/* Floating so it never shifts the layout. */
 .toast {
-  font-size: 13px; background: #8f6bff22; border-left: 3px solid var(--violet);
-  padding: 8px 12px; border-radius: 6px; cursor: pointer; animation: fadein .2s;
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 40;
+  width: max-content; max-width: min(560px, calc(100vw - 24px));
+  font-size: 13px; background: #241a46f2; border: 1px solid var(--violet); color: var(--text);
+  padding: 10px 14px; border-radius: 10px; cursor: pointer; animation: fadein .2s;
+  box-shadow: 0 8px 30px #0008;
 }
-.toast.error { background: #ff4f6d1a; border-color: var(--red); }
-@keyframes fadein { from { opacity: 0; transform: translateY(-4px); } }
+.toast.error { background: #3a1626f2; border-color: var(--red); }
+@keyframes fadein { from { opacity: 0; } }
 
 /* ---- instruments ---- */
 .tabs { display: none; }
@@ -206,24 +235,8 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
 .key-label { font: 10px "JetBrains Mono", monospace; opacity: 0.7; }
 .key-name { font-size: 10px; opacity: 0.6; }
 
-/* ---- settings sheet ---- */
-.sheet-backdrop {
-  position: fixed; inset: 0; background: #05030c99; z-index: 50;
-  display: flex; justify-content: flex-end; animation: fadein .15s;
-}
-.sheet {
-  width: min(440px, 100%); height: 100%; background: #120d22; border-left: 1px solid var(--line);
-  display: flex; flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom);
-  animation: slidein .2s ease-out;
-}
-@keyframes slidein { from { transform: translateX(40px); opacity: 0.6; } }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-bottom: 1px solid var(--line); }
-.sheet-head .seg { flex: 1; }
-.sheet-head .seg button { flex: 1; padding: 8px 6px; }
-.sheet-body { padding: 14px 12px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-.sheet h3 { margin: 4px 0 -6px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+/* ---- tweak controls ---- */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-items: end; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .row .btn { flex: 1; }
 .toggles { display: flex; flex-direction: column; gap: 8px; }
@@ -238,7 +251,7 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
 .sound .row select { flex: 1 1 100%; }
 .sound .chip { flex: 1; }
 .chip.rec-on { border-color: var(--red); color: var(--red); }
-.fx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.fx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 14px; }
 
 /* ---- phones ---- */
 @media (max-width: 760px) {
@@ -250,7 +263,10 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
   .transport { gap: 8px; padding: 8px; }
   .tbtn { width: 44px; height: 44px; }
   .btn.fix { flex: 1; justify-content: center; padding: 0 10px; }
-  .song-info { display: none; }
+  .view-toggle { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .view-toggle span { display: none; }
+  .stage { height: 38dvh; min-height: 230px; }
+  .loop-head .hint { display: none; }
 
   .tabs { display: flex; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
   .tabs button { flex: 1; min-height: 40px; border: none; border-radius: 9px; background: none; color: var(--muted); font-weight: 600; }
@@ -268,10 +284,6 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
   .instruments { flex: 1; min-height: 0; }
   .chord-pads { grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(84px, 1fr); }
   .piano { height: auto; flex: 1; min-height: 200px; max-height: 420px; }
-
-  .sheet-backdrop { align-items: flex-end; }
-  .sheet { width: 100%; height: auto; max-height: 85dvh; border-left: none; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; animation-name: slideup; }
-  @keyframes slideup { from { transform: translateY(60px); opacity: 0.6; } }
 }
 /* Landscape phone: chords and keys side by side, everything compressed to fit one screen. */
 @media (max-height: 500px) and (pointer: coarse) {
@@ -281,8 +293,10 @@ input[type="range"] { accent-color: var(--pink); width: 100%; height: 28px; }
   .transport { padding: 4px 8px; }
   .tbtn { width: 38px; height: 38px; font-size: 15px; }
   .btn.fix { min-height: 38px; }
-  .roll { height: 64px !important; }
-  .toast { padding: 4px 10px; font-size: 12px; }
+  .stage { height: 30dvh; min-height: 0; }
+  .view-toggle { height: 38px; }
+  .tweaks-head, .loop-head { padding: 4px 8px; }
+  .toast { padding: 6px 10px; font-size: 12px; }
   .instruments { flex: 1; min-height: 0; }
   .panel { padding: 8px; gap: 6px; }
   .panel > header { min-height: 28px; }
