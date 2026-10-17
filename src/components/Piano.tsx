@@ -44,6 +44,7 @@ export function Piano() {
     },
     onPointerEnter: (e: React.PointerEvent) => e.buttons && press(e.pointerId, m),
     onPointerUp: (e: React.PointerEvent) => release(e.pointerId),
+    onPointerCancel: (e: React.PointerEvent) => release(e.pointerId),
     onPointerLeave: (e: React.PointerEvent) => e.buttons && release(e.pointerId),
   });
 

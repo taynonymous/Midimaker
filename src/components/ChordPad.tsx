@@ -7,8 +7,10 @@ export function ChordPad() {
   const { keyRoot, scale, voicing, chordOctave, activeChord } = useStore();
   const held = useRef(new Map<number, number[]>()); // pointerId → notes
 
+  // Each pad captures its pointer, so a chord holds until the finger lifts no matter
+  // how it drifts (unlike the piano, which releases capture to allow glissando).
   const down = (e: React.PointerEvent, degree: number) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
     const notes = useStore.getState().chordOn(degree);
     held.current.set(e.pointerId, notes);
   };
@@ -29,7 +31,8 @@ export function ChordPad() {
             className={`pad ${activeChord === d ? "down" : ""} ${d === 0 ? "home" : ""}`}
             onPointerDown={(e) => down(e, d)}
             onPointerUp={up}
-            onPointerLeave={up}
+            onPointerCancel={up}
+            onLostPointerCapture={up}
           >
             <span className="pad-roman">{c.roman}</span>
             <span className="pad-name">{c.name}</span>
