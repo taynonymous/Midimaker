@@ -46,7 +46,8 @@ interface State {
   /** Main stage shows the sound tweaks, or the loop timeline (auto-switches on record). */
   view: "tweaks" | "loop";
   mobileTab: TrackId;
-  activeChord: number | null;
+  /** Scale degrees of chords currently held (several pads can be down at once). */
+  activeChords: number[];
   heldMidi: Record<TrackId, number[]>;
 }
 
@@ -62,7 +63,9 @@ interface Actions {
   noteOff: (track: TrackId, midi: number) => void;
   /** Play a diatonic chord; returns the midi notes so the caller can release them. */
   chordOn: (degree: number, velocity?: number) => number[];
-  chordOff: (notes: number[]) => void;
+  chordOff: (notes: number[], degree: number) => void;
+  /** Release everything immediately (tab hidden, focus lost). */
+  panic: () => void;
   /** Snap a raw lead note to the key when scale lock is on. */
   leadNote: (midi: number) => number;
   replaceNotes: (notes: Note[], opts?: { ghost?: boolean; toast?: string | null }) => void;
@@ -98,6 +101,20 @@ const TWEAK_KEYS = new Set(Object.keys(defaults("edm")).filter((k) => k !== "sce
 
 // Notes currently held while recording, keyed by track:midi.
 const pending = new Map<string, { start: number; velocity: number; id: string }>();
+// Sounding notes, keyed by track:midi. Ref-counted because two held chords (or a pad and a
+// key) can share a note: it starts on the first press and stops on the last release.
+//
+// Strum delays are run with JS timers so every synth call happens "now". Letting Tone.js
+// PolySynth schedule future attacks left notes hanging when two strummed chords overlapped.
+interface Voice {
+  count: number;
+  started: boolean;
+  timer?: ReturnType<typeof setTimeout>;
+  /** Released before its strum delay elapsed: play it briefly once it starts. */
+  releaseOnStart?: boolean;
+}
+const voices = new Map<string, Voice>();
+const BLIP_MS = 60;
 let lastChord: number[] | null = null;
 
 export const useStore = create<State & Actions>((set, get) => ({
@@ -111,7 +128,7 @@ export const useStore = create<State & Actions>((set, get) => ({
   toast: null,
   view: "tweaks",
   mobileTab: "chords",
-  activeChord: null,
+  activeChords: [],
   heldMidi: { lead: [], chords: [] },
 
   set: (p) => set(Object.keys(p).some((k) => TWEAK_KEYS.has(k)) ? { ...p, modified: true } : p),
@@ -153,14 +170,29 @@ export const useStore = create<State & Actions>((set, get) => ({
 
   noteOn: (track, midi, velocity = 0.8, delaySec = 0) => {
     void engine.start();
-    engine.noteOn(track, midi, velocity, delaySec);
+    const key = `${track}:${midi}`;
+    const v = voices.get(key);
+    if (v) {
+      v.count++;
+      return;
+    }
+    const voice: Voice = { count: 1, started: false };
+    voices.set(key, voice);
+    const startVoice = () => {
+      voice.timer = undefined;
+      voice.started = true;
+      engine.noteOn(track, midi, velocity);
+      if (voice.releaseOnStart) setTimeout(() => engine.noteOff(track, midi), BLIP_MS);
+    };
+    if (delaySec > 0) voice.timer = setTimeout(startVoice, delaySec * 1000);
+    else startVoice();
     const s = get();
     set({ heldMidi: { ...s.heldMidi, [track]: [...s.heldMidi[track], midi] } });
     // No engine.playing check: notes hit in the ~50ms before the transport starts land at beat 0.
     if (s.recording && s.tracks[track].armed) {
       const lb = loopBeats(s);
       const delayBeats = (delaySec * s.bpm) / 60;
-      pending.set(`${track}:${midi}`, {
+      pending.set(key, {
         start: (engine.positionBeats(lb) + delayBeats) % lb,
         velocity,
         id: newId(),
@@ -169,10 +201,14 @@ export const useStore = create<State & Actions>((set, get) => ({
   },
 
   noteOff: (track, midi) => {
-    engine.noteOff(track, midi);
+    const key = `${track}:${midi}`;
+    const v = voices.get(key);
+    if (!v || --v.count > 0) return;
+    voices.delete(key);
+    if (v.started) engine.noteOff(track, midi);
+    else v.releaseOnStart = true; // quick tap on a strum: let the late notes blip, not hang
     const s = get();
     set({ heldMidi: { ...s.heldMidi, [track]: s.heldMidi[track].filter((m) => m !== midi) } });
-    const key = `${track}:${midi}`;
     const p = pending.get(key);
     if (!p) return;
     pending.delete(key);
@@ -189,13 +225,30 @@ export const useStore = create<State & Actions>((set, get) => ({
     const notes = voiceLead(chord.notes, lastChord, center);
     lastChord = notes.slice(1);
     notes.forEach((m, i) => get().noteOn("chords", m, i === 0 ? velocity * 0.9 : velocity, i * s.strum));
-    set({ activeChord: degree });
+    set({ activeChords: [...get().activeChords, degree] });
     return notes;
   },
 
-  chordOff: (notes) => {
+  chordOff: (notes, degree) => {
     notes.forEach((m) => get().noteOff("chords", m));
-    if (get().heldMidi.chords.length === 0) set({ activeChord: null });
+    const ac = get().activeChords;
+    const i = ac.indexOf(degree);
+    if (i >= 0) set({ activeChords: [...ac.slice(0, i), ...ac.slice(i + 1)] });
+  },
+
+  panic: () => {
+    for (const [key, v] of voices) {
+      if (v.timer) {
+        clearTimeout(v.timer);
+        v.timer = undefined;
+        v.started = true; // never sounded; nothing to release
+      }
+      const [track, midi] = key.split(":");
+      v.count = 1;
+      get().noteOff(track as TrackId, Number(midi));
+    }
+    engine.allOff();
+    set({ heldMidi: { lead: [], chords: [] }, activeChords: [] });
   },
 
   leadNote: (midi) => {
@@ -258,7 +311,23 @@ export function bindEngine() {
     }
   };
   apply(useStore.getState());
-  return useStore.subscribe((s, prev) => apply(s, prev));
+  const unsub = useStore.subscribe((s, prev) => apply(s, prev));
+
+  // Leaving the tab/app: fingers and keys lift without events reaching us, so release
+  // everything. Coming back: resume audio (also retried on the next tap, which counts
+  // as a user gesture if this attempt is blocked).
+  const onVisibility = () => {
+    if (document.hidden) useStore.getState().panic();
+    else void engine.start().catch(() => {});
+  };
+  const onBlur = () => useStore.getState().panic();
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("blur", onBlur);
+  return () => {
+    unsub();
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("blur", onBlur);
+  };
 }
 
 export type { State };

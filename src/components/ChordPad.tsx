@@ -4,21 +4,22 @@ import { diatonicChord } from "../music/theory";
 
 /** Seven diatonic chord pads for the current key — every pad sounds good together. */
 export function ChordPad() {
-  const { keyRoot, scale, voicing, chordOctave, activeChord } = useStore();
-  const held = useRef(new Map<number, number[]>()); // pointerId → notes
+  const { keyRoot, scale, voicing, chordOctave, activeChords } = useStore();
+  const held = useRef(new Map<number, { notes: number[]; degree: number }>()); // pointerId → chord
 
   // Each pad captures its pointer, so a chord holds until the finger lifts no matter
   // how it drifts (unlike the piano, which releases capture to allow glissando).
   const down = (e: React.PointerEvent, degree: number) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    held.current.get(e.pointerId) && up(e); // defensive: never orphan a chord
     const notes = useStore.getState().chordOn(degree);
-    held.current.set(e.pointerId, notes);
+    held.current.set(e.pointerId, { notes, degree });
   };
   const up = (e: React.PointerEvent) => {
-    const notes = held.current.get(e.pointerId);
-    if (!notes) return;
+    const h = held.current.get(e.pointerId);
+    if (!h) return;
     held.current.delete(e.pointerId);
-    useStore.getState().chordOff(notes);
+    useStore.getState().chordOff(h.notes, h.degree);
   };
 
   return (
@@ -28,7 +29,7 @@ export function ChordPad() {
         return (
           <button
             key={d}
-            className={`pad ${activeChord === d ? "down" : ""} ${d === 0 ? "home" : ""}`}
+            className={`pad ${activeChords.includes(d) ? "down" : ""} ${d === 0 ? "home" : ""}`}
             onPointerDown={(e) => down(e, d)}
             onPointerUp={up}
             onPointerCancel={up}

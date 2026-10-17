@@ -79,12 +79,17 @@ class Engine {
     this.setMastering(true);
   }
 
+  /**
+   * Must be called from a user gesture. Also re-resumes after the browser suspends audio
+   * (backgrounded tab, app switch, iOS interruption) — not just the first time.
+   */
   async start() {
+    if (Tone.getContext().state !== "running") await Tone.start();
     if (this.started) return;
-    await Tone.start();
     Tone.getContext().lookAhead = 0.03; // lower latency for live playing
     this.started = true;
   }
+
 
   setMastering(on: boolean) {
     this.mastering = on;
@@ -96,9 +101,9 @@ class Engine {
     return this.mastering;
   }
 
-  noteOn(track: TrackId, midi: number, velocity: number, delaySec = 0) {
-    const freq = Tone.Frequency(midi, "midi").toFrequency();
-    this.tracks[track].synth.triggerAttack(freq, Tone.now() + delaySec, velocity);
+  // Live notes are always triggered "now" (see the voice handling in the store).
+  noteOn(track: TrackId, midi: number, velocity: number) {
+    this.tracks[track].synth.triggerAttack(Tone.Frequency(midi, "midi").toFrequency(), Tone.now(), velocity);
   }
 
   noteOff(track: TrackId, midi: number) {

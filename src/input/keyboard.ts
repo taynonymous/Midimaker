@@ -35,7 +35,7 @@ export function bindComputerKeyboard() {
     if (deg >= 0) {
       e.preventDefault();
       const notes = s.chordOn(deg);
-      held.set(e.code, () => useStore.getState().chordOff(notes));
+      held.set(e.code, () => useStore.getState().chordOff(notes, deg));
       return;
     }
     switch (e.code) {

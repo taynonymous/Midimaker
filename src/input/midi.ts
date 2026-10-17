@@ -43,7 +43,7 @@ export async function bindMidi(onStatus: (s: MidiStatus) => void): Promise<() =>
           if (Math.abs(st - rel) < Math.abs(steps[degree] - rel)) degree = i;
         });
         const notes = s.chordOn(degree, velocity);
-        held.set(note, () => useStore.getState().chordOff(notes));
+        held.set(note, () => useStore.getState().chordOff(notes, degree));
       }
     } else if (cmd === 0x80 || (cmd === 0x90 && vel === 0)) {
       held.get(note)?.();
